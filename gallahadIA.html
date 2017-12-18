@@ -1,0 +1,519 @@
+ <!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<title>Gallahad</title>
+
+
+	
+	
+<script src = "phaser.js"></script>
+	
+
+<script src="qtable.js"></script> 
+	
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>    	
+<style>
+	 #bar{
+            display: flex;
+            flex-wrap: wrap;
+            width: 80%;
+            height: 10%;
+         }
+    .item{
+            width: 8%;
+            height: 10%;
+            margin: 0px;
+			border: 1px solid black;
+        }   
+	
+</style>
+
+<script>
+	/*
+	Já que é necessário intercalar muito as funções com o "main"(esse html) acabei não usando da maneira mais correta as classes do Quimera.
+	Uma tentativa seria mover esse script para a classe problema mas não consegui fazer porque causa problemas com o funcionamento da Phaser, não sei se ela se comportar bem com classes improvisadas. Acredite, eu tentei kkkkkkk.
+	
+	PS: Vai se ferrar Javascript	
+
+	*/
+
+	
+	var problema = new Problema();
+	
+	
+	
+	var learning = new Qlearning(problema);
+	learning.rho = 0.05;
+	learning.alpha = 0.2;
+	learning.gamma = 0.0;
+	var app = angular.module("game", []);
+    app.controller("control",function($scope)
+          {  
+		     var mydistance = 0;
+	  	     var game = new Phaser.Game(800, 600, Phaser.AUTO, 'gamediv', { preload: preload, create: create, update: update });
+	  	     var score_view = 0;
+	  	     var timer = 0;
+	  	     var bulletControl = 50;
+	  	     var scoreText;
+	  	     var bullet;
+	  	     var inimigoCounter = 0;			 
+			 var bulletdelay = 50;
+			 var enemydelay = 20;
+			 var speed= 150;
+			 var windistance = 500;
+				
+			 //colisoes
+				var col1=0;
+				var col2=0;
+				var col3=0;
+				var col4=0;
+				var col5=0;
+				var col6=0;
+		
+		     //ganho de pontos
+				var oldgain= 0.22;
+			    var gain = 0;
+		
+			 //setor
+				var areaX=0;
+		
+			//morto
+				var isDead = false;
+				var venceu =false;
+		
+				var iteracao = 1;
+				var maxiteracoes = 100;
+				var acabou = false;
+             			
+		     function preload() {
+			 	game.load.spritesheet('nave1', 'assets/nave1.png', 32, 32);
+			 	game.load.spritesheet('nave2', 'assets/nave2.png', 32, 32);
+			 	game.load.spritesheet('inimigo1', 'assets/inimigo1.png', 32, 32);
+			 	game.load.spritesheet('bullet', 'assets/bullet.png', 20, 20);
+			 	game.load.image('star', 'assets/star.png', 8, 8);
+				game.load.image('gameOver', 'assets/ded.png', 800, 600);
+				game.load.image('youWin', 'assets/yay.png', 800, 600);
+				game.load.image('loginimg', 'assets/login.png', 800, 600);
+				game.load.image('colisao','assets/colisao.png',192,32);
+			 }
+
+	         function create() {
+	                scoreText = game.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#FFFFFF' });
+	                colText1 = game.add.text(300, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	colText2 = game.add.text(320, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	colText3 = game.add.text(340, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	colText4 = game.add.text(360, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	colText5 = game.add.text(380, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	colText6 = game.add.text(400, 16, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 
+				 	gainText = game.add.text(310, 40, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	areaText = game.add.text(510, 20, 'T', { fontSize: '22px', fill: '#FFFFFF' });
+				 	itText = game.add.text(600, 16, 'T', { fontSize: '32px', fill: '#0000FF' });
+				 	stateText = game.add.text(700, 16, 'T', { fontSize: '22px', fill: '#0000FF' });
+	                game.physics.startSystem(Phaser.Physics.ARCADE);
+	                
+	                stars = game.add.group();
+	                game.physics.arcade.enable(stars);
+	                stars.enableBody = true;
+	                for (var i = 0; i < 50; i++)
+	                {
+	                	var s = stars.create(game.world.randomX, Math.random() * 600, 'star', game.rnd.integerInRange(0, 36));
+	                	s.name = 'star' + i;
+	                	s.body.immovable = true;
+	                }
+				 
+				 	
+	                player = game.add.sprite(32, game.world.height - 300, 'nave1');
+				
+	                game.physics.arcade.enable(player);
+	                player.body.collideWorldBounds = true;
+	                player.animations.add('move', [0, 1], 10, true);
+	                
+				 
+				    colisao1 = game.add.sprite(200,50,"colisao");
+				 	colisao2 = game.add.sprite(200,50,"colisao");
+				 	colisao3 = game.add.sprite(200,50,"colisao");
+				 	colisao4 = game.add.sprite(200,50,"colisao");
+				 	colisao5 = game.add.sprite(200,50,"colisao");
+				 	colisao6 = game.add.sprite(200,50,"colisao");
+				 
+				 	game.physics.arcade.enable(colisao1);
+				 	game.physics.arcade.enable(colisao2);
+				 	game.physics.arcade.enable(colisao3);
+				 	game.physics.arcade.enable(colisao4);
+				 	game.physics.arcade.enable(colisao5);
+				 	game.physics.arcade.enable(colisao6);
+				 
+				 
+	                cursors = game.input.keyboard.createCursorKeys();
+	                
+	                bullets = game.add.group();
+	                bullets.enableBody = true;
+	                game.physics.arcade.enable(bullets);
+	                for (var i = 0; i < 20; i++)
+	                {
+	                	var b = bullets.create(0, 0, 'bullet');
+	                	b.name = 'bullet' + i;
+	                	b.exists = false;
+	                	b.visible = false;
+	                	b.checkWorldBounds = true;
+	                	b.events.onOutOfBounds.add(resetBullet, this);
+	                }
+	                
+	                inimigos = game.add.group();	                
+	                game.physics.arcade.enable(inimigos);
+	                inimigos.enableBody = true;
+	             
+			 }
+		
+			 function update() {
+		
+					 //  Reset the players velocity (movement)
+					player.body.velocity.x = 0;
+					player.body.velocity.y = 0;
+				 
+				 	col1=0;
+				 	col2=0;
+				 	col3=0;
+				 	col4=0;
+				 	col5=0;
+				 	col6=0;
+					
+					player.animations.play('move');
+					
+					game.physics.arcade.overlap(bullets, inimigos, mataInimigo, null, this);
+					
+				    
+				 	
+					if (cursors.left.isDown)
+					{
+						//  Move to the left
+						player.body.velocity.x = -1 * speed;
+					}
+					if (cursors.right.isDown)
+					{
+						//  Move to the right
+						player.body.velocity.x = 1 * speed;
+					}
+					if (cursors.up.isDown)
+					{
+						//  Move up
+						player.body.velocity.y = speed * -2;
+					}
+					if (cursors.down.isDown)
+					{
+						//  Move down
+						player.body.velocity.y = speed * 2;
+					}
+					if (game.input.keyboard.isDown(Phaser.Keyboard.S))
+					{
+						if(bulletControl > bulletdelay)
+						{
+							disparar();
+						}
+					}
+				 
+				 	colisao1.x = player.x;
+				 	colisao1.y = player.y;
+					colisao2.x = player.x;
+				 	colisao2.y = player.y +32;
+				 	colisao3.x = player.x;
+				 	colisao3.y = player.y -32;
+				 	colisao4.x = player.x +192;
+				 	colisao4.y = player.y;
+					colisao5.x = player.x +192;
+				 	colisao5.y = player.y +32;
+				 	colisao6.x = player.x +192;
+				 	colisao6.y = player.y -32;
+				 
+				 	mydistance +=  (0.5 * (player.x/800) + 0.2);
+				    areaX= Math.round((player.x-10)/80);
+				 	
+				 	game.physics.arcade.overlap(colisao1, inimigos, col1active);
+				 	game.physics.arcade.overlap(colisao2, inimigos, col2active);
+				 	game.physics.arcade.overlap(colisao3, inimigos, col3active);
+				 	game.physics.arcade.overlap(colisao4, inimigos, col4active);
+				 	game.physics.arcade.overlap(colisao5, inimigos, col5active);
+				 	game.physics.arcade.overlap(colisao6, inimigos, col6active);
+				 	
+				 	colText1.text = col1;
+				 	colText2.text = col2;
+				 	colText3.text = col3;
+				 	colText4.text = col4;
+				 	colText5.text = col5;
+				 	colText6.text = col6;
+				   
+	                
+				 	areaText.text = areaX;
+				 	itText.text = iteracao;
+					
+					
+						score_view = Math.round(mydistance);
+						scoreText.text = 'Score: ' + score_view;
+					
+					
+					if(timer % enemydelay == 0)
+					{
+						var c = inimigos.create(810, Math.random() * 600, 'inimigo1', game.rnd.integerInRange(0, 36));						
+						c.body.immovable = true;
+					}
+					
+					inimigos.forEachAlive(IA, this);
+					inimigos.forEachAlive(enemytestbounds, this);
+					stars.forEachAlive(backG, this);
+					
+					timer++;
+					bulletControl++;					
+				 
+				 	if (mydistance >= windistance && isDead == false)
+					{
+						vencer(player);
+					}
+				 
+				 	
+				 
+//APREDIZADO AQUI-----------------VVVVVVVVVVVVVVVVVVVV--------------------------------------------------------------
+				 	problema.achaestado(areaX,col1,col2,col3,col4,col5,col6);
+				 	var esseestado = problema.estadoatual;
+				 	var cooldown = bulletControl <= bulletdelay;				 	
+				 	problema.getAcoes(cooldown);
+				 	learning.problema = problema;
+				 
+				 	var acaoescolhida = learning.aprenderpt1();
+				 	
+				 	switch(acaoescolhida)
+			 		{
+			 			case 0:
+			 				 // Move up
+							if(player.y > 6)
+			 					player.y -= 5;
+			 				break;
+			 			case 1:
+			 				  //Move down
+							if(player.y < 594)
+			 					player.y += 5;
+			 				break;
+			 			case 2:
+			 				  //Move to the left
+			 				if(player.x > 3)
+			 					player.x -= 2.5;
+			 				break;
+			 			case 3:
+			 				  //Move to the right
+			 				if(player.x < 765)
+			 					player.x += 2.5;
+			 				break;
+			 			case 4:
+			 				//shoot
+			 				disparar();
+			 				break;
+			 			default:
+			 				alert("deu caquinha  " + acaoescolhida);		
+			 		}
+			 	
+				 	
+				 	//testes
+				 	gain = (0.5 * (player.x/800) + 0.2);
+				 	stateText.text = esseestado;
+				 	gainText.text= ((gain/oldgain - 1) * 100)/(areaX +1);
+				 	
+				 	//checa as cols(again)
+				 	game.physics.arcade.overlap(colisao1, inimigos, col1active);
+				 	game.physics.arcade.overlap(colisao2, inimigos, col2active);
+				 	game.physics.arcade.overlap(colisao3, inimigos, col3active);
+				 	game.physics.arcade.overlap(colisao4, inimigos, col4active);
+				 	game.physics.arcade.overlap(colisao5, inimigos, col5active);
+				 	game.physics.arcade.overlap(colisao6, inimigos, col6active);
+				 	
+				 	
+				 
+				 	game.physics.arcade.overlap(player, inimigos, mataPlayer, null, this);
+				 	
+				 	//aplica avaliação-------------------------------------------------
+				  if(!acabou)// continua jogando mas sem aprender apos o fim das iteracoes.
+					  {
+					 	var par = new Parproblema();
+					 	var reward = 0;
+					 	if(isDead)
+						{
+							reward -= 5.0;
+						}
+					 	
+					 	var gaineq = ((gain/oldgain - 1) * 50)/(areaX +1);
+						  if(areaX > 6)
+							  gaineq *= -1;
+						  
+						 reward += gaineq;
+					
+					 	if(acaoescolhida == 4)
+							{
+								if(col1 == 1 || col4 == 1)
+								{								
+									reward += 10.0; // basicamente gritando com o bot que isso é bom
+								}
+							}
+					 
+					 	par.recompensa = reward;
+					 	var nstate = areaX * 64 + col1 * 32 + col2 * 16 + col3 * 8 + col4 * 4 + col5 * 2 + col6;	
+					 	par.novoestado = nstate;
+					 
+					 	
+					 	
+					 
+					 	learning.aprenderpt2(par);
+					  }
+				    //loop se não está no fim
+				 	if(isDead || venceu)
+						{
+							if(iteracao < maxiteracoes)
+								{									
+									restart();
+								}
+							else{
+								acabou = true;
+								restart();
+							}
+						}
+				 
+				 	oldgain = gain;
+			 }
+	
+		 	 function resetBullet (bullet) {
+
+		    	  bullet.kill();
+				
+			  }
+	
+			 function disparar () {
+	
+				  bullet = bullets.getFirstExists(false);
+				  
+				  if (bullet)
+				  {
+					  bullet.reset(player.position.x + 35, player.position.y + 6);
+					  bullet.body.velocity.x = 350;
+					  bulletControl = 0;
+				  }
+			 }
+	
+		     function mataInimigo (bullet, ini) {
+		
+			 	bullet.kill();
+			 	ini.kill();
+			 }
+	
+			 function IA (inimigo) { 
+		
+			    	inimigo.body.velocity.x = ((player.position.x/2) * 4 + 50) * -1;
+			  }
+	
+			 function mataPlayer(P){
+			 	 			 
+				 isDead = true;				
+			 }
+	 
+			 function vencer (P)
+				{
+					
+					venceu = true;
+				}
+		
+			 function backG(G) {
+	
+					G.body.velocity.x = ((player.position.x/2) * 7 + 100) * -1;
+					if(G.position.x <= 0)
+					{
+						G.x = 800;
+					}
+	          }
+	
+			 function enemytestbounds  (ini) {
+		
+				  if(ini.position.x <= 0)
+				  {
+					  ini.kill();
+				  }
+	          }
+         	 
+			 function col2active()
+			{
+			   col2 = 1;
+			}
+	
+			 function col1active()
+			{
+			   col1 = 1;
+			}
+		
+			 function col3active()
+			{
+			   col3 = 1;
+			}
+		
+			 function col4active()
+			{
+			   col4 = 1;
+			}
+		
+			 function col5active()
+			{
+			   col5 = 1;
+			}
+		
+			 function col6active()
+			{
+			   col6 = 1;
+			}
+		
+			function restart()
+			{
+				if(iteracao < maxiteracoes)
+				{	
+					iteracao++;
+				}
+				player.x = 32;
+				player.y =game.world.height - 300;
+				oldgain= 0.22;
+				inimigos.removeAll();
+				mydistance = 0;
+				bulletControl = 50;
+				bullets.removeAll();
+				
+				 for (var i = 0; i < 20; i++)
+	                {
+	                	var b = bullets.create(0, 0, 'bullet');
+	                	b.name = 'bullet' + i;
+	                	b.exists = false;
+	                	b.visible = false;
+	                	b.checkWorldBounds = true;
+	                	b.events.onOutOfBounds.add(resetBullet, this);
+	                }
+				
+				isDead=false;
+				venceu=false;
+			}
+			 
+		
+			 
+			 
+			 
+			 	
+    });
+
+	
+
+	
+
+</script>
+	
+</head>
+
+<body ng-app="game" ng-controller="control" ng-init = "getRules()">
+	<h1>{{error}}</h1>
+	<center>
+		<div id='gamediv'></div>
+	</center>
+</body>
+</html>
